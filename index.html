@@ -2998,7 +2998,7 @@ const DEF_SETTINGS={finUpTo:20,finLow:5,finHigh:7,stampImg:'',signImg:'',myPhras
  mt:40,mb:40,fs:16,archView:'grid'};
 let DB;
 const S=()=>DB.settings;
-function persist(){try{localStorage.setItem(KEY,JSON.stringify(DB))}catch(e){toast('تعذّر الحفظ في المتصفح — صدّر نسخة احتياطية','bad')}}
+function persist(){try{localStorage.setItem(KEY,JSON.stringify(DB))}catch(e){toast('تعذّر الحفظ في المتصفح — صدّر نسخة احتياطية','bad')}if(typeof schedAutoBk==='function'&&!persist._quiet)schedAutoBk()}
 function load(){
  try{const j=JSON.parse(localStorage.getItem(KEY));if(j&&Array.isArray(j.docs)){j.docs.forEach(ensureSt);if(!(j.settings||{}).mig4){j.settings=j.settings||{};j.settings.mig4=true;j.docs.forEach(d=>{if(d.st&&d.st.tbl==='mint')d.st.tbl='navy'})}
   if(!(j.settings||{}).mig3){j.settings=j.settings||{};j.settings.mig3=true;j.docs.forEach(d=>{if(d.toName==='السيد/ مدير مركز نوماس'){d.toName='السيد/عبدالرحمن عقيل محمد المقطري';d.toTitle='مدير مركز نوماس';d.showStamp=true;d.showSign=true}});(j.contacts||[]).forEach(c=>{if(c.line==='السيد/ مدير مركز نوماس'){c.line='السيد/عبدالرحمن عقيل محمد المقطري';c.title='مدير مركز نوماس'}})}
@@ -3993,13 +3993,15 @@ function viewSettings(v){
  <div class="card sect enter" style="--i:4;grid-column:1/-1"><h3>${ic('save')}النسخ الاحتياطي والبيانات</h3><p style="color:var(--mute);margin-top:0">تُحفظ البيانات في هذا المتصفح على جهازك. صدّر نسخة احتياطية بانتظام، ويمكنك استيرادها على أي جهاز آخر.</p>
   <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn pri" data-act="exportBk">${ic('download')}تصدير نسخة احتياطية</button><label class="btn">${ic('upload')}استيراد نسخة<input type="file" id="impF" accept=".json" hidden></label><button class="btn dang" data-act="resetAll" style="margin-inline-start:auto">${ic('trash')}مسح كل البيانات</button></div>
   <div class="hint" style="margin-top:12px">${ic('archive')}${DB.docs.length} مخاطبة • ${DB.contacts.length} جهة • ${DB.templates.length} قالب • الحجم ${(JSON.stringify(DB).length/1024).toFixed(0)} KB</div></div>
- <div class="card sect enter" style="--i:4"><h3>${ic('hash')}الملحق المالي للاتفاقيات</h3><div class="row3">${fi('finUpTo','حتى عدد مشاركين','number')}${fi('finLow','النسبة (%)','number')}${fi('finHigh','النسبة لما زاد (%)','number')}</div><div class="hint">${ic('wand')}مطابقة لجدول المادة المالية في اتفاقية التعاون (5% حتى 20 مشاركاً، 7% لما زاد).</div></div>${usersCard()}</div>`;
+ <div class="card sect enter" style="--i:4"><h3>${ic('hash')}الملحق المالي للاتفاقيات</h3><div class="row3">${fi('finUpTo','حتى عدد مشاركين','number')}${fi('finLow','النسبة (%)','number')}${fi('finHigh','النسبة لما زاد (%)','number')}</div><div class="hint">${ic('wand')}مطابقة لجدول المادة المالية في اتفاقية التعاون (5% حتى 20 مشاركاً، 7% لما زاد).</div></div>${abCard()}${usersCard()}</div>`;
  $$('[data-s]',v).forEach(el=>el.addEventListener(el.tagName==='SELECT'||el.type==='checkbox'?'change':'input',()=>{const k=el.dataset.s;s[k]=el.type==='checkbox'?el.checked:(el.type==='number'||k==='hijriOffset'||k==='numPad')?+el.value:el.value;persist();$('#nxEx').textContent=nextNo({date:todayISO()})}));
  $('#seqY').oninput=e=>{s.seq[y]=+e.target.value||0;persist();$('#nxEx').textContent=nextNo({date:todayISO()})};
  $('#impF').onchange=e=>{const f=e.target.files[0];if(!f)return;f.text().then(t=>{try{const j=JSON.parse(t);if(!Array.isArray(j.docs))throw 0;confirmBox(`استيراد ${j.docs.length} مخاطبة؟ سيتم استبدال البيانات الحالية.`,()=>{const fl=j.files||{};delete j.files;DB=j;DB.settings=Object.assign({},DEF_SETTINGS,j.settings);Object.entries(fl).forEach(async([k,f])=>{try{await IDB.put(k,{name:f.name,type:f.type,blob:await b64ToBlob(f.data)})}catch(e){}});if(ME&&!(DB.users||[]).some(u=>u.id===ME.id)){DB.users=DB.users||[];if(!DB.users.length)DB.users.push(ME)}DB.contacts=j.contacts||[];DB.templates=j.templates||[];persist();render();toast('تم الاستيراد بنجاح')},'استيراد')}catch(x){toast('ملف غير صالح','bad')}})};
 }
+async function backupJson(){const files={};for(const x of (DB.incoming||[]))for(const f of (x.files||[])){try{const r=await IDB.get(f.id);if(r)files[f.id]={name:r.name,type:r.type,data:await blobToB64(r.blob)}}catch(e){}}return JSON.stringify(Object.assign({},DB,{files}))}
+function bkStamp(ts){const d=new Date(ts);const iso=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');return `يوم ${dayName(iso)} ${gregStr(iso)} الساعة ${fmtTime(String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'))}`}
 async function exportBackup(){const files={};for(const x of (DB.incoming||[]))for(const f of (x.files||[])){try{const r=await IDB.get(f.id);if(r)files[f.id]={name:r.name,type:r.type,data:await blobToB64(r.blob)}}catch(e){}}
- download('أرشيف-دروب-'+todayISO()+'.json',new Blob([JSON.stringify(Object.assign({},DB,{files}))],{type:'application/json'}));S().lastBackup=Date.now();persist();toast('تم تصدير النسخة الاحتياطية','', 'download')}
+ download('أرشيف-دروب-'+todayISO()+'.json',new Blob([JSON.stringify(Object.assign({},DB,{files}))],{type:'application/json'}));S().lastBackup=Date.now();persist();toast('تم عمل نسخة احتياطية '+bkStamp(S().lastBackup),'', 'download')}
 
 /* ================= Features batch: users, QR, ledger, incoming, files, finance ================= */
 function cyrb(str){let h1=0xdeadbeef,h2=0x41c6ce57;for(let i=0;i<str.length;i++){const ch=str.charCodeAt(i);h1=Math.imul(h1^ch,2654435761);h2=Math.imul(h2^ch,1597334677)}h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);return (h2>>>0).toString(16).padStart(8,'0')+(h1>>>0).toString(16).padStart(8,'0')}
@@ -4035,7 +4037,8 @@ function showAuth(){
 }
 function login(u,rem){ME=u;try{sessionStorage.setItem('duroob_sess',u.id);if(rem)localStorage.setItem('duroob_rem',u.id)}catch(e){}u.lastLogin=Date.now();persist();const el=$('#auth');if(el){el.classList.add('out');setTimeout(()=>el.remove(),450)}APP.view='home';render();toast('أهلاً '+u.name,'', 'shield')}
 function logout(){if(APP.view==='compose'&&APP.cur&&!isAp(APP.cur)&&(hasContent(APP.cur)||APP.touched))saveCur(true);ME=null;APP.cur=null;try{sessionStorage.removeItem('duroob_sess');localStorage.removeItem('duroob_rem')}catch(e){}showAuth()}
-function boot(){DB.users=DB.users||[];let id=null;try{id=sessionStorage.getItem('duroob_sess')||localStorage.getItem('duroob_rem')}catch(e){}const u=id&&DB.users.find(x=>x.id===id&&x.active);if(u){ME=u;render()}else{renderNav();showAuth()}}
+async function bootAB(){await abLoad();if(ME&&APP.view==='home')render()}
+function boot(){bootAB();DB.users=DB.users||[];let id=null;try{id=sessionStorage.getItem('duroob_sess')||localStorage.getItem('duroob_rem')}catch(e){}const u=id&&DB.users.find(x=>x.id===id&&x.active);if(u){ME=u;render()}else{renderNav();showAuth()}}
 function usersCard(){
  if(!can('settings'))return '';
  return `<div class="card sect enter" style="--i:5;grid-column:1/-1"><h3>${ic('users')}المستخدمون والصلاحيات<a data-act="addUser">+ مستخدم جديد</a></h3>
@@ -4066,8 +4069,32 @@ function cleanImage(file,cb){const r=new FileReader();r.onload=()=>{const im=new
  const D=g.getImageData(0,0,c.width,c.height),a=D.data;let x0=c.width,y0=c.height,x1=0,y1=0;for(let i=0;i<a.length;i+=4){const m=Math.min(a[i],a[i+1],a[i+2]);const al=m>232?0:m>200?Math.round((232-m)/32*255):255;a[i+3]=Math.min(a[i+3],al);if(a[i+3]>20){const p=i/4,x=p%c.width,y=(p/c.width)|0;if(x<x0)x0=x;if(y<y0)y0=y;if(x>x1)x1=x;if(y>y1)y1=y}}
  g.putImageData(D,0,0);if(x1<=x0){cb(c.toDataURL('image/png'));return}const o=document.createElement('canvas');o.width=x1-x0+1;o.height=y1-y0+1;o.getContext('2d').drawImage(c,x0,y0,o.width,o.height,0,0,o.width,o.height);cb(o.toDataURL('image/png'))};im.src=r.result};r.readAsDataURL(file)}
 
+/* ---- Automatic backup to a chosen file (Chrome / Edge) ---- */
+const AB={h:null,ok:false,busy:false,pending:false,supported:typeof window.showSaveFilePicker==='function'};
+async function abLoad(){if(!AB.supported)return;try{AB.h=await IDB.get('__bkHandle');if(AB.h){AB.ok=(await AB.h.queryPermission({mode:'readwrite'}))==='granted'}}catch(e){AB.h=null}}
+async function abChoose(){if(!AB.supported){toast('الحفظ التلقائي في ملف يعمل في Chrome أو Edge على الكمبيوتر','bad');return}
+ try{const h=await window.showSaveFilePicker({suggestedName:'أرشيف-دروب-نسخة-تلقائية.json',types:[{description:'نسخة احتياطية',accept:{'application/json':['.json']}}]});AB.h=h;AB.ok=true;await IDB.put('__bkHandle',h);S().autoBk={on:true,name:h.name};persist._quiet=true;persist();persist._quiet=false;await abWrite(true);render()}catch(e){if(e&&e.name!=='AbortError')toast('تعذّر اختيار الملف: '+e.message,'bad')}}
+async function abResume(){if(!AB.h)return abChoose();try{const p=await AB.h.requestPermission({mode:'readwrite'});AB.ok=p==='granted';if(AB.ok){await abWrite(true);render()}else toast('لم يُسمح بالكتابة على الملف','bad')}catch(e){toast('تعذّر التفعيل: '+e.message,'bad')}}
+async function abWrite(force){if(!AB.h||!AB.ok||!(S().autoBk&&S().autoBk.on))return;if(AB.busy){AB.pending=true;return}AB.busy=true;
+ try{const w=await AB.h.createWritable();await w.write(await backupJson());await w.close();const now=Date.now();S().lastBackup=now;S().lastAutoBk=now;persist._quiet=true;persist();persist._quiet=false;
+  toast('تم عمل نسخة احتياطية '+bkStamp(now),'', 'save');const el=$('#abStat');if(el)el.innerHTML=abStatus()}
+ catch(e){AB.ok=false;toast('توقف الحفظ التلقائي — افتح الإعدادات لإعادة تفعيله','bad')}
+ AB.busy=false;if(AB.pending){AB.pending=false;setTimeout(()=>abWrite(),500)}}
+const schedAutoBk=debounce(()=>{if(ME)abWrite()},20000);
+function abStop(){S().autoBk={on:false};persist._quiet=true;persist();persist._quiet=false;render();toast('أُوقف الحفظ التلقائي')}
+function abStatus(){const s=S();const on=s.autoBk&&s.autoBk.on;
+ if(!AB.supported)return `<span class="chip st-draft">غير مدعوم في هذا المتصفح — استخدم Chrome أو Edge</span>`;
+ if(!on||!AB.h)return `<span class="chip" style="background:var(--card2)">غير مفعّل</span>`;
+ if(!AB.ok)return `<span class="chip st-returned">متوقف — يحتاج إعادة تفعيل</span>`;
+ return `<span class="chip st-issued">${ic('check')}مفعّل — يحفظ في «${esc(s.autoBk.name||'')}»</span>${s.lastAutoBk?`<br><small style="color:var(--mute)">آخر نسخة: ${bkStamp(s.lastAutoBk)}</small>`:''}`}
+function abCard(){const s=S();const on=s.autoBk&&s.autoBk.on&&AB.h;
+ return `<div class="card sect enter" style="--i:4;grid-column:1/-1"><h3>${ic('save')}النسخ الاحتياطي التلقائي</h3>
+ <p style="color:var(--mute);margin-top:0">اختر ملفاً مرة واحدة (مثلاً داخل مجلد OneDrive)، وسيحفظ النظام نسخة كاملة فيه تلقائياً بعد كل تعديل بعشرين ثانية، مع رسالة تأكيد باليوم والتاريخ والساعة.</p>
+ <div id="abStat" style="margin-bottom:12px">${abStatus()}</div>
+ <div style="display:flex;gap:10px;flex-wrap:wrap">${!on?`<button class="btn gold" data-act="abChoose">${ic('save')}اختيار ملف الحفظ التلقائي</button>`:!AB.ok?`<button class="btn gold" data-act="abResume">${ic('check')}إعادة تفعيل الحفظ التلقائي</button>`:`<button class="btn pri" data-act="abNow">${ic('save')}حفظ نسخة الآن</button><button class="btn" data-act="abChoose">${ic('edit')}تغيير الملف</button><button class="btn dang" data-act="abStop">${ic('x')}إيقاف</button>`}</div>
+ <div class="hint" style="margin-top:10px">${ic('shield')}<span>المتصفح يطلب إذنك بالكتابة على الملف عند كل فتح جديد للنظام — اضغط «إعادة تفعيل» من الشريط في الرئيسية مرة واحدة.</span></div></div>`}
 /* ---- Backup reminder ---- */
-function backupBanner(){const s=S();if(!DB.docs.length)return '';const last=s.lastBackup||0;if(Date.now()-last<7*864e5)return '';if(s.bkSnooze&&Date.now()<s.bkSnooze)return '';
+function backupBanner(){const s=S();if(s.autoBk&&s.autoBk.on&&AB.h&&!AB.ok&&AB.supported)return `<div class="bkban enter">${ic('save')}<div style="flex:1"><b>الحفظ التلقائي متوقف مؤقتاً</b><br><small>المتصفح يحتاج إذنك للكتابة على ملف «${esc(s.autoBk.name||'')}» — اضغط مرة واحدة.</small></div><button class="btn gold sm" data-act="abResume">${ic('check')}إعادة التفعيل</button></div>`;if(s.autoBk&&s.autoBk.on&&AB.ok)return '';if(!DB.docs.length)return '';const last=s.lastBackup||0;if(Date.now()-last<7*864e5)return '';if(s.bkSnooze&&Date.now()<s.bkSnooze)return '';
  return `<div class="bkban enter">${ic('save')}<div style="flex:1"><b>${last?'مرّ أكثر من أسبوع على آخر نسخة احتياطية ('+ago(last)+')':'لم تُصدّر أي نسخة احتياطية بعد'}</b><br><small>بياناتك محفوظة في هذا المتصفح فقط — صدّر نسخة واحفظها في OneDrive أو بريدك.</small></div><button class="btn gold sm" data-act="exportBk">${ic('download')}تصدير الآن</button><button class="btn sm ghost" data-act="bkSnooze">ذكّرني غداً</button></div>`}
 
 /* ---- IndexedDB for incoming attachments ---- */
@@ -4213,6 +4240,10 @@ function act(a,el){
  if(PERM[a]&&!can(a)){noPerm(a);return}
  switch(a){
   case 'lock':logout();break;
+  case 'abChoose':abChoose();break;
+  case 'abResume':abResume();break;
+  case 'abNow':abWrite(true);break;
+  case 'abStop':abStop();break;
   case 'simple':S().simple=!S().simple;persist();renderNav();toast(S().simple?'الوضع المبسّط: أُخفيت الأدوات المتقدمة':'عادت كل الأدوات','', 'spark');break;
   case 'addUser':editUser();break;
   case 'bkSnooze':S().bkSnooze=Date.now()+864e5;persist();render();break;
